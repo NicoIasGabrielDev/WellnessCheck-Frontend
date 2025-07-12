@@ -6,33 +6,37 @@ import { User, Lock, Sparkles } from "lucide-react";
 export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState(null);
+  const [error, setError] = useState(""); 
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
   const handleLogin = async (e) => {
     e.preventDefault();
     setLoading(true);
-    setError(null);
+    setError("");
+
     try {
       const res = await api.post("/auth/login", { email, password });
       const { token, user } = res.data;
-      debugger
+
       localStorage.setItem("token", token);
-      localStorage.setItem("user", user);
+      localStorage.setItem("user", JSON.stringify(user));
 
-    if (user.role === "admin") {
-      navigate("/dashboard"); 
-    } else {
-      navigate("/checkin"); 
+      const role = user?.role?.toLowerCase() || "";
+      if (role === "admin") {
+        navigate("/dashboard");
+      } else {
+        navigate("/checkin");
+      }
+    } catch (err) {
+      console.error("Login error:", err);
+      setError(
+        err.response?.data?.message ||
+        "Invalid credentials or server offline."
+      );
+    } finally {
+      setLoading(false);
     }
-
-  } catch (err) {
-    setError("Invalid credentials or server offline.");
-    console.error(err);
-  } finally {
-    setLoading(false);
-  }
   };
 
   return (
@@ -58,10 +62,11 @@ export default function Login() {
                 <input
                   type="email"
                   placeholder="E-mail"
+                  autoComplete="username"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full p-3 pl-10 rounded-lg bg-zinc-700/50 backdrop-blur-md border border-zinc-600/50 focus:border-amber-500/50 focus:ring-2 focus:ring-amber-500/20 text-white placeholder-zinc-400 transition-all outline-none text-lg"
                   required
+                  className="w-full p-3 pl-10 rounded-lg bg-zinc-700/50 backdrop-blur-md border border-zinc-600/50 focus:border-amber-500/50 focus:ring-2 focus:ring-amber-500/20 text-white placeholder-zinc-400 transition-all outline-none text-lg"
                 />
               </div>
               <div className="relative">
@@ -69,10 +74,11 @@ export default function Login() {
                 <input
                   type="password"
                   placeholder="Password"
+                  autoComplete="current-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full p-3 pl-10 rounded-lg bg-zinc-700/50 backdrop-blur-md border border-zinc-600/50 focus:border-amber-500/50 focus:ring-2 focus:ring-amber-500/20 text-white placeholder-zinc-400 transition-all outline-none text-lg"
                   required
+                  className="w-full p-3 pl-10 rounded-lg bg-zinc-700/50 backdrop-blur-md border border-zinc-600/50 focus:border-amber-500/50 focus:ring-2 focus:ring-amber-500/20 text-white placeholder-zinc-400 transition-all outline-none text-lg"
                 />
               </div>
               {error && (
@@ -85,9 +91,9 @@ export default function Login() {
                 disabled={loading}
                 className="w-full py-3 px-4 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-zinc-900 font-medium rounded-lg transition-all duration-200 shadow-lg disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center"
               >
-                {loading ? (
+                {loading && (
                   <div className="w-5 h-5 rounded-full border-2 border-zinc-900 border-t-transparent animate-spin mr-2"></div>
-                ) : null}
+                )}
                 {loading ? "Logging in..." : "Login"}
               </button>
             </form>
