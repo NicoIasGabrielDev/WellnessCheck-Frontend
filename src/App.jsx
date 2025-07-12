@@ -1,26 +1,56 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { useState, useEffect } from "react";
 import Login from "./pages/Login";
 import CheckIn from "./pages/CheckIn";
 import Dashboard from "./pages/Dashboard";
 import PrivateRoute from "./routes/PrivateRoute";
-import { parseJwt } from "./utils/parseJwt";
 
 export default function App() {
-  const token = localStorage.getItem("token");
-  const user = token ? parseJwt(token) : null;
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-  const role = user?.["http://schemas.microsoft.com/ws/2008/06/identity/claims/role"];
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    const userString = localStorage.getItem("user");
+    
+    if (token && userString) {
+      try {
+        const parsedUser = JSON.parse(userString);
+        setUser(parsedUser);
+      } catch (error) {
+        console.error("Erro ao parsear usuário:", error);
+        localStorage.removeItem("token");
+        localStorage.removeItem("user");
+      }
+    }
+    setLoading(false);
+  }, []);
+
+  // Função para atualizar o usuário após login
+  const updateUser = (newUser) => {
+    setUser(newUser);
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-zinc-900">
+        <div className="text-white">Carregando...</div>
+      </div>
+    );
+  }
+
+  const role = user?.role?.toLowerCase();
 
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<Login />} />
+        <Route path="/" element={<Login updateUser={updateUser} />} />
 
         <Route
           path="/checkin"
           element={
             <PrivateRoute>
-              {role === "Employee" ? <CheckIn /> : <Navigate to="/dashboard" />}
+              {role === "employee" ? <CheckIn /> : <Navigate to="/dashboard" />}
             </PrivateRoute>
           }
         />
@@ -29,7 +59,7 @@ export default function App() {
           path="/dashboard"
           element={
             <PrivateRoute>
-              {role === "Admin" ? <Dashboard /> : <Navigate to="/checkin" />}
+              {role === "admin" ? <Dashboard /> : <Navigate to="/checkin" />}
             </PrivateRoute>
           }
         />

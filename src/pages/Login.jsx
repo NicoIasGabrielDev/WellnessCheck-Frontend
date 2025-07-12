@@ -1,42 +1,111 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../services/api";
 import { User, Lock, Sparkles } from "lucide-react";
 
-export default function Login() {
+export default function Login({ updateUser }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState(""); 
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  const handleLogin = async (e) => {
-    e.preventDefault();
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    const userString = localStorage.getItem("user");
+    
+    if (token && userString) {
+      try {
+        const user = JSON.parse(userString);
+        const role = user?.role?.toLowerCase();
+        
+        if (role === "admin") {
+          navigate("/dashboard");
+        } else if (role === "employee") {
+          navigate("/checkin");
+        }
+      } catch (error) {
+        console.error("Erro ao verificar login:", error);
+        localStorage.removeItem("token");
+        localStorage.removeItem("user");
+      }
+    }
+  }, [navigate]);
+
+  const getErrorMessage = (error) => {
+    if (error.response?.status === 401) {
+      return "Incorrect email or password";
+    }
+    if (error.response?.status === 404) {
+      return "Service unavailable at the moment";
+    }
+    if (error.response?.status >= 500) {
+      return "Internal server error. Please try again in a few minutes";
+    }
+    if (error.code === 'NETWORK_ERROR' || error.message.includes('Network')) {
+      return "Connection error. Please check your internet";
+    }
+    return "Login failed. Please try again";
+  };
+
+  const performLogin = async (loginEmail, loginPassword) => {
     setLoading(true);
     setError("");
 
     try {
-      const res = await api.post("/auth/login", { email, password });
+      const res = await api.post("/auth/login", {
+        email: loginEmail,
+        password: loginPassword,
+      });
+      
       const { token, user } = res.data;
+
+      if (!token || !user) {
+        throw new Error("Invalid Credentials");
+      }
 
       localStorage.setItem("token", token);
       localStorage.setItem("user", JSON.stringify(user));
 
+      if (updateUser) {
+        updateUser(user);
+      }
+
       const role = user?.role?.toLowerCase() || "";
+      
       if (role === "admin") {
-        navigate("/dashboard");
+        navigate("/dashboard", { replace: true });
+      } else if (role === "employee") {
+        navigate("/checkin", { replace: true });
       } else {
-        navigate("/checkin");
+        console.warn("Role unkonwn:", role);
+        navigate("/checkin", { replace: true });
       }
     } catch (err) {
       console.error("Login error:", err);
-      setError(
-        err.response?.data?.message ||
-        "Invalid credentials or server offline."
-      );
+      setError(getErrorMessage(err));
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleLogin = (e) => {
+    e.preventDefault();
+    if (!email || !password) {
+      setError("Please fill in all fields");
+      return;
+    }
+    performLogin(email, password);
+  };
+
+  const loginAsAdmin = () => {
+    setError("");
+    performLogin("admin@wellness.com", "admin123");
+  };
+  
+  const loginAsEmployee = () => {
+    setError("");
+    performLogin("employee@example.com", "employee123");
   };
 
   return (
@@ -66,7 +135,8 @@ export default function Login() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
-                  className="w-full p-3 pl-10 rounded-lg bg-zinc-700/50 backdrop-blur-md border border-zinc-600/50 focus:border-amber-500/50 focus:ring-2 focus:ring-amber-500/20 text-white placeholder-zinc-400 transition-all outline-none text-lg"
+                  disabled={loading}
+                  className="w-full p-3 pl-10 rounded-lg bg-zinc-700/50 backdrop-blur-md border border-zinc-600/50 focus:border-amber-500/50 focus:ring-2 focus:ring-amber-500/20 text-white placeholder-zinc-400 transition-all outline-none text-lg disabled:opacity-50"
                 />
               </div>
               <div className="relative">
@@ -78,7 +148,8 @@ export default function Login() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
-                  className="w-full p-3 pl-10 rounded-lg bg-zinc-700/50 backdrop-blur-md border border-zinc-600/50 focus:border-amber-500/50 focus:ring-2 focus:ring-amber-500/20 text-white placeholder-zinc-400 transition-all outline-none text-lg"
+                  disabled={loading}
+                  className="w-full p-3 pl-10 rounded-lg bg-zinc-700/50 backdrop-blur-md border border-zinc-600/50 focus:border-amber-500/50 focus:ring-2 focus:ring-amber-500/20 text-white placeholder-zinc-400 transition-all outline-none text-lg disabled:opacity-50"
                 />
               </div>
               {error && (
@@ -96,6 +167,35 @@ export default function Login() {
                 )}
                 {loading ? "Logging in..." : "Login"}
               </button>
+              <div className="grid grid-cols-1 gap-3 mt-6">
+                <div className="text-center text-zinc-400 text-sm mb-2">
+                  Quick login for demonstration
+                </div>
+                <button
+                  type="button"
+                  onClick={loginAsEmployee}
+                  disabled={loading}
+                  className="group relative overflow-hidden bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-medium py-3 px-6 rounded-lg transition-all duration-300 shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+                >
+                  <div className="absolute inset-0 bg-gradient-to-r from-blue-400 to-blue-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                  <div className="relative flex items-center justify-center gap-2">
+                    <User size={18} />
+                    <span>Login as Employee</span>
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  onClick={loginAsAdmin}
+                  disabled={loading}
+                  className="group relative overflow-hidden bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white font-medium py-3 px-6 rounded-lg transition-all duration-300 shadow-lg shadow-purple-500/25 hover:shadow-purple-500/40 hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+                >
+                  <div className="absolute inset-0 bg-gradient-to-r from-purple-400 to-purple-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                  <div className="relative flex items-center justify-center gap-2">
+                    <Sparkles size={18} />
+                    <span>Login as Administrator</span>
+                  </div>
+                </button>
+              </div>
             </form>
             <div className="mt-8 pt-6 border-t border-zinc-700/50">
               <p className="text-zinc-500 text-xs text-center">
